@@ -11,9 +11,30 @@
  */
 
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { runDailyImportJob, type RunImportOptions } from "@/lib/features/daily-redash-import/job";
 import type { ImportProgress } from "@/types/app-db.types";
+
+/**
+ * 서버-서버 내부 호출용 shared secret 검증.
+ *
+ * `Authorization: Bearer <INTERNAL_IMPORT_TOKEN>` 헤더가 일치하면 세션 인증을
+ * 건너뛴다. 토큰은 LiteLLM credential(`media-board-internal-token`)로 주입되며,
+ * 미설정 시 이 경로는 자동 비활성화된다 (세션 인증만 유효).
+ */
+function hasValidServiceToken(req: NextRequest): boolean {
+  const expected = process.env.INTERNAL_IMPORT_TOKEN;
+  if (!expected) return false;
+  const header = req.headers.get("authorization");
+  if (!header) return false;
+  const m = /^Bearer\s+(.+)$/.exec(header);
+  if (!m) return false;
+  const provided = Buffer.from(m[1]);
+  const secret = Buffer.from(expected);
+  if (provided.length !== secret.length) return false;
+  return timingSafeEqual(provided, secret);
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,12 +66,19 @@ function todayKst(): string {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // 1. 인증 (세션만 확인, 데이터 작업에는 사용 안 함)
-  const authClient = await createClient();
-  const { data: { user }, error: authErr } = await authClient.auth.getUser();
-  if (authErr || !user) {
-    return new Response("Unauthorized", { status: 401 });
+  // 1. 인증 — 서비스 토큰 우선, 실패 시 세션 fallback
+  let caller: string;
+  if (hasValidServiceToken(req)) {
+    caller = "service:internal-import";
+  } else {
+    const authClient = await createClient();
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    caller = `user:${user.email ?? user.id}`;
   }
+  console.log("[import/redash] 호출", { caller });
 
   // 2. body 파싱·검증
   let body: ModalRequest;
