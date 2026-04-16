@@ -388,17 +388,6 @@ export interface ImportResult {
   }>;
 }
 
-/** Options accepted by importCSVData() orchestrator. */
-export interface ImportCSVDataOptions {
-  csvText: string;
-  onProgress?: (progress: ImportProgress) => void;
-  /** Return true to request cancellation. */
-  onCancel?: () => boolean;
-  batchSize?: number;
-  forceDateRange?: { startDate: string; endDate: string } | null;
-  lastDateHint?: string | null;
-}
-
 // ---------------------------------------------------------------------------
 // Board (Dashboard) section
 // ---------------------------------------------------------------------------

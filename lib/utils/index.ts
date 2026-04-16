@@ -5,5 +5,5 @@
  *   import { cn, formatDate } from "@/lib/utils";
  */
 export { cn } from "@/lib/utils/cn";
-export { parseCSV, normalizeDate } from "@/lib/utils/csvParser";
+export { normalizeDate } from "@/lib/utils/csvParser";
 export { formatNumberForDisplay } from "@/lib/utils/number-utils";

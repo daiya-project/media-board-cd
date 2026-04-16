@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { X, UploadCloud, Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModalStore } from "@/stores/useModalStore";
-import { IMPORT_CSV_URL } from "@/lib/config";
-import { fetchCSVFromGoogleSheets } from "@/lib/api/importFetch";
+import { createMediaClient } from "@/lib/supabase/media-client";
 import { getLastImportedDate } from "@/lib/api/importDbOps";
 import { getLastCvrImportedDate } from "@/lib/api/cvrImportDbOps";
-import { importCSVData } from "@/lib/logic/importOrchestration";
 import { importCvrData } from "@/lib/logic/cvrImportOrchestration";
 import type { ImportProgress, ImportResult } from "@/types/app-db.types";
 import type { ResultType, LogType } from "./ResultStep";
@@ -103,7 +101,7 @@ export function ImportModal() {
     setActiveLog(null);
     isCancelRef.current = false;
 
-    getLastImportedDate()
+    getLastImportedDate(createMediaClient())
       .then(setLastDate)
       .catch((err) => {
         console.error("[ImportModal] getLastImportedDate error:", err);
@@ -143,39 +141,108 @@ export function ImportModal() {
       }
     }
 
-    if (!IMPORT_CSV_URL) {
-      setValidationError(
-        "CSV URL이 설정되지 않았습니다. NEXT_PUBLIC_IMPORT_CSV_URL 환경 변수를 확인하세요."
-      );
-      return;
-    }
-
     isCancelRef.current = false;
     setProgress(INITIAL_PROGRESS);
     setStep("progress");
 
     try {
-      const csvText = await fetchCSVFromGoogleSheets(IMPORT_CSV_URL);
-      const importResult = await importCSVData({
-        csvText,
-        onProgress: setProgress,
-        onCancel: () => isCancelRef.current,
-        forceDateRange: isForceUpdate
-          ? { startDate: forceStartDate, endDate: forceEndDate }
-          : null,
-        lastDateHint: lastDate,
+      const reqBody = isForceUpdate
+        ? { mode: "force", startDate: forceStartDate, endDate: forceEndDate }
+        : { mode: "incremental" };
+
+      const res = await fetch("/api/import/redash", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(reqBody),
       });
 
-      setResult(importResult);
-      setResultType(
-        importResult.cancelled ? "cancelled" : importResult.success ? "completed" : "error"
-      );
-      if (!importResult.success && !importResult.cancelled) {
-        setErrorMessage(
-          importResult.errors.map((e) => e.message).join("\n") ||
-            "알 수 없는 오류가 발생했습니다."
-        );
+      if (!res.ok) {
+        const text = await res.text();
+        setErrorMessage(text || `HTTP ${res.status}`);
+        setResultType("error");
+        setStep("result");
+        return;
       }
+      if (!res.body) {
+        setErrorMessage("응답 본문이 비어 있습니다.");
+        setResultType("error");
+        setStep("result");
+        return;
+      }
+
+      // NDJSON 라인 단위 파싱
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalResult: ImportResult | null = null;
+      let finalError: { message: string; jobId?: string } | null = null;
+
+      while (true) {
+        if (isCancelRef.current) {
+          await reader.cancel();
+          break;
+        }
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // 마지막 한 줄은 미완성 가능
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let evt: { type: string } & Record<string, unknown>;
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            continue; // 잘못된 라인 무시
+          }
+          if (evt.type === "progress") {
+            // ImportProgress 형식 그대로
+            const { type: _t, ...progressFields } = evt;
+            setProgress(progressFields as unknown as ImportProgress);
+          } else if (evt.type === "result") {
+            const { type: _t, ...resultFields } = evt;
+            finalResult = resultFields as unknown as ImportResult;
+          } else if (evt.type === "error") {
+            finalError = {
+              message: String(evt.message ?? "알 수 없는 오류"),
+              jobId: typeof evt.jobId === "string" ? evt.jobId : undefined,
+            };
+          }
+          // phase 이벤트는 현재 UI 에 영향 없음 (필요 시 phase 별 메시지 추가)
+        }
+      }
+
+      if (isCancelRef.current) {
+        setResultType("cancelled");
+        setStep("result");
+        return;
+      }
+      if (finalError) {
+        const msg = finalError.jobId
+          ? `${finalError.message} (job: ${finalError.jobId})`
+          : finalError.message;
+        setErrorMessage(msg);
+        setResultType("error");
+        setStep("result");
+        return;
+      }
+      if (finalResult) {
+        setResult(finalResult);
+        setResultType(finalResult.success ? "completed" : "error");
+        if (!finalResult.success) {
+          setErrorMessage(
+            finalResult.errors.map((e) => e.message).join("\n") ||
+              "알 수 없는 오류가 발생했습니다.",
+          );
+        }
+        setStep("result");
+        return;
+      }
+      // result/error 둘 다 못 받음
+      setErrorMessage("스트림이 결과 없이 종료되었습니다.");
+      setResultType("error");
       setStep("result");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

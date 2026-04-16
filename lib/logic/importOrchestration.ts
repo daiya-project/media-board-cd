@@ -11,13 +11,13 @@
  *  - updateImportLog uses dateStart/dateEnd (not dataDateStart/End)
  */
 
-import { parseCSV, normalizeDate } from "@/lib/utils/csvParser";
+import { normalizeDate } from "@/lib/utils/csvParser";
 import { IMPORT_BATCH_DELAY_MS, IMPORT_BATCH_THRESHOLDS } from "@/lib/config";
 import { addDays } from "@/lib/utils/date-utils";
 import type {
   ParsedCSVRow,
   ImportResult,
-  ImportCSVDataOptions,
+  ImportProgress,
 } from "@/types/app-db.types";
 import {
   getLastImportedDate,
@@ -34,6 +34,10 @@ import {
 } from "@/lib/api/importEntityService";
 import { type ValidatedRow, validateRow } from "./importValidation";
 import { importBatch } from "@/lib/api/importBatchService";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
+
+type MediaClient = SupabaseClient<Database, "media">;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -54,28 +58,34 @@ function delay(ms: number): Promise<void> {
 // Public API
 // ---------------------------------------------------------------------------
 
+export interface ImportParsedRowsOptions {
+  rows: ParsedCSVRow[];
+  supabase: MediaClient;
+  forceDateRange?: { startDate: string; endDate: string } | null;
+  lastDateHint?: string | null;
+  batchSize?: number;
+  onProgress?: (p: ImportProgress) => void;
+  onCancel?: () => boolean;
+}
+
 /**
- * Full CSV import workflow: parse → validate → widget registration → batch upsert → log.
+ * 이미 파싱된 ParsedCSVRow[] 를 검증·dedup·entity 등록·배치 upsert 한다.
  *
- * Calls onProgress after each batch to enable real-time UI updates.
- * Respects onCancel() to allow user-initiated cancellation between batches.
+ * 호출자:
+ *  - app/api/import/redash/route.ts (모달, NDJSON streaming)
+ *  - lib/features/daily-redash-import/job.ts (cron)
  *
- * @param options.csvText       - Raw CSV string from Google Sheets
- * @param options.onProgress    - Callback invoked after each batch
- * @param options.onCancel      - Return true to stop processing
- * @param options.forceDateRange - If set, deletes existing data in range before import
- * @param options.lastDateHint  - Pre-fetched last date (skips a DB query)
- * @returns Final import result summary
+ * 두 호출자 모두 supabase 클라이언트를 주입한다 (cookie-free anon client).
  */
-export async function importCSVData(
-  options: ImportCSVDataOptions
+export async function importParsedRows(
+  options: ImportParsedRowsOptions,
 ): Promise<ImportResult> {
-  const { csvText, onProgress, onCancel, batchSize, forceDateRange, lastDateHint } =
+  const { rows, supabase, onProgress, onCancel, batchSize, forceDateRange, lastDateHint } =
     options;
 
   const result: ImportResult = {
     success: true,
-    totalRows: 0,
+    totalRows: rows.length,
     imported: 0,
     failed: 0,
     skipped: 0,
@@ -99,14 +109,10 @@ export async function importCSVData(
   let dataDateEnd: string | null = null;
 
   try {
-    const rows = parseCSV(csvText);
-    result.totalRows = rows.length;
-
     const dynamicBatchSize = batchSize ?? calculateBatchSize(rows.length);
 
     if (rows.length === 0) return result;
 
-    // Determine import range
     let targetStartDate: string | null = null;
     let targetEndDate: string | null = null;
 
@@ -114,21 +120,20 @@ export async function importCSVData(
       targetStartDate = forceDateRange.startDate;
       targetEndDate = forceDateRange.endDate;
       const { error: deleteError } = await deleteDataByDateRange(
+        supabase,
         targetStartDate,
-        targetEndDate
+        targetEndDate,
       );
-      if (deleteError)
-        console.error("강제 업데이트 삭제 오류:", deleteError);
+      if (deleteError) console.error("강제 업데이트 삭제 오류:", deleteError);
     } else {
       const lastDate =
-        lastDateHint !== undefined ? lastDateHint : await getLastImportedDate();
+        lastDateHint !== undefined ? lastDateHint : await getLastImportedDate(supabase);
       targetStartDate = lastDate ? addDays(lastDate, 1) : null;
     }
 
     let isCancelled = false;
     const validatedRows: ValidatedRow[] = [];
 
-    // Iterate in reverse so we can break early on old data (newest-first CSV)
     for (let i = rows.length - 1; i >= 0; i--) {
       if (onCancel?.()) {
         isCancelled = true;
@@ -139,9 +144,8 @@ export async function importCSVData(
       const validation = validateRow(row, i);
 
       if (!validation.valid) {
-        if (validation.skip) {
-          result.skipped++;
-        } else {
+        if (validation.skip) result.skipped++;
+        else {
           result.failed++;
           result.errors.push({ row: i + 1, message: validation.errorMessage });
         }
@@ -165,7 +169,6 @@ export async function importCSVData(
       if (!dataDateEnd || nd > dataDateEnd) dataDateEnd = nd;
     }
 
-    // Early exit if cancelled during validation
     if (isCancelled) {
       result.cancelled = true;
       result.dateStart = dataDateStart;
@@ -173,8 +176,7 @@ export async function importCSVData(
       return result;
     }
 
-    // Deduplicate by PK — prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"
-    // when the CSV contains duplicate (date, client_id, service_id, widget_id) combos.
+    // PK dedup
     const pkSeen = new Set<string>();
     const uniqueRows: ValidatedRow[] = [];
     for (const vr of validatedRows) {
@@ -186,8 +188,6 @@ export async function importCSVData(
     }
     const finalRows = uniqueRows;
 
-    // Phase 1: parallel scan — client whitelist + missing service/widget IDs
-    // All three are read-only DB queries, safe to run concurrently.
     let acceptedRows: ValidatedRow[] = [];
     let clientNameMap = new Map<string, string>();
     if (finalRows.length > 0) {
@@ -196,13 +196,12 @@ export async function importCSVData(
 
       const [{ validClientIds, clientNameMap: nameMap }, serviceScan, widgetScan] =
         await Promise.all([
-          fetchRegisteredClientIds(uniqueClientIds),
+          fetchRegisteredClientIds(supabase, uniqueClientIds),
           scanMissingServices(scanRows),
           scanMissingWidgets(scanRows),
         ]);
       clientNameMap = nameMap;
 
-      // Phase 2: filter rows by registered client_id
       const filtered: ValidatedRow[] = [];
       for (const vr of finalRows) {
         const cid = vr.row.client_id!;
@@ -230,19 +229,17 @@ export async function importCSVData(
       }
       acceptedRows = filtered;
 
-      // Phase 3: register — narrow scan results to accepted rows only (avoids FK violations)
-      // service first (widget FK → service)
       if (acceptedRows.length > 0) {
         const acceptedServiceIds = new Set(
-          acceptedRows.map((r) => r.row.service_id!).filter(Boolean)
+          acceptedRows.map((r) => r.row.service_id!).filter(Boolean),
         );
         const missingServiceIds = serviceScan.missingIds.filter((id) =>
-          acceptedServiceIds.has(id)
+          acceptedServiceIds.has(id),
         );
         const serviceResult = await registerMissingServices(
           serviceScan.serviceInfoMap,
           missingServiceIds,
-          clientNameMap
+          clientNameMap,
         );
         result.servicesCreated = serviceResult.created;
         result.newServiceLogs = serviceResult.newRows;
@@ -251,15 +248,15 @@ export async function importCSVData(
         const acceptedWidgetIds = new Set(
           acceptedRows
             .map((r) => r.row.widget_id)
-            .filter((id): id is string => Boolean(id))
+            .filter((id): id is string => Boolean(id)),
         );
         const missingWidgetIds = widgetScan.missingIds.filter((id) =>
-          acceptedWidgetIds.has(id)
+          acceptedWidgetIds.has(id),
         );
         const widgetResult = await registerMissingWidgets(
           widgetScan.widgetInfoMap,
           missingWidgetIds,
-          clientNameMap
+          clientNameMap,
         );
         result.widgetsCreated = widgetResult.created;
         result.newWidgetLogs = widgetResult.newRows;
@@ -267,7 +264,6 @@ export async function importCSVData(
       }
     }
 
-    // Batch upsert
     for (let i = 0; i < acceptedRows.length; i += dynamicBatchSize) {
       if (onCancel?.()) {
         isCancelled = true;
@@ -296,7 +292,9 @@ export async function importCSVData(
           result.failedDetails.push({
             date: vr.normalizedDate,
             client_id: vr.row.client_id,
-            client_name: vr.row.client_id ? (clientNameMap.get(vr.row.client_id) ?? null) : null,
+            client_name: vr.row.client_id
+              ? (clientNameMap.get(vr.row.client_id) ?? null)
+              : null,
             service_id: vr.row.service_id,
             service_name: vr.row.service_name ?? null,
             widget_id: vr.row.widget_id,
@@ -321,19 +319,15 @@ export async function importCSVData(
         await delay(IMPORT_BATCH_DELAY_MS);
     }
 
-    if (failedRowsForSave.length > 0)
-      await saveFailedRows(failedRowsForSave);
+    if (failedRowsForSave.length > 0) await saveFailedRows(supabase, failedRowsForSave);
 
     if (isCancelled) result.cancelled = true;
 
-    // Refresh materialized views so the dashboard reflects newly imported data.
-    // Run after save; a failure here is non-fatal (stale views until next import).
-    // 30s timeout prevents the progress screen from hanging if the RPC is slow.
     if (!isCancelled && result.imported > 0) {
       await Promise.race([
-        refreshDailyViews(),
+        refreshDailyViews(supabase),
         new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error("refresh_daily_views timeout")), 30_000)
+          setTimeout(() => reject(new Error("refresh_daily_views timeout")), 30_000),
         ),
       ]).catch((err) => {
         console.warn("[import] refresh_daily_views failed (non-fatal):", err);
@@ -345,8 +339,7 @@ export async function importCSVData(
     return result;
   } catch (err) {
     result.success = false;
-    const errorMessage =
-      err instanceof Error ? err.message : String(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
     result.errors.push({ row: 0, message: `전체 import 오류: ${errorMessage}` });
     result.dateStart = dataDateStart;
     result.dateEnd = dataDateEnd;

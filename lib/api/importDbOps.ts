@@ -1,27 +1,23 @@
 /**
- * Import DB operations — simple CRUD queries for CSV data import.
+ * Import DB operations — simple CRUD queries for CSV/Redash data import.
  *
- * All functions use the browser Supabase client and target the `media` schema.
- * Based on _reference/src/shared/api/importService/db.ts.
+ * 모든 함수가 `supabase` 인자를 받는다 — 호출자가 적절한 클라이언트(브라우저/cron)를 주입.
+ * 기존에는 내부에서 createMediaClient() 를 호출했으나, cron 에서도 호출 가능하도록 변경.
  */
 
-import { createMediaClient } from "@/lib/supabase/media-client";
 import { WIDGET_BATCH_SIZE } from "@/lib/config";
 import type { ParsedCSVRow } from "@/types/app-db.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
+
+type MediaClient = SupabaseClient<Database, "media">;
 
 // ---------------------------------------------------------------------------
 // DB — last imported date
 // ---------------------------------------------------------------------------
 
-/**
- * Returns the most recent date present in media.daily.
- * Client-side equivalent of lib/api/dateService.ts getLatestDataDate (server-only).
- *
- * @returns Most recent date string (YYYY-MM-DD), or null if table is empty.
- */
-export async function getLastImportedDate(): Promise<string | null> {
+export async function getLastImportedDate(supabase: MediaClient): Promise<string | null> {
   try {
-    const supabase = createMediaClient();
     const { data, error } = await supabase
       .from("daily")
       .select("date")
@@ -30,7 +26,7 @@ export async function getLastImportedDate(): Promise<string | null> {
       .single();
 
     if (error) {
-      if (error.code === "PGRST116") return null; // no rows
+      if (error.code === "PGRST116") return null;
       throw error;
     }
     return (data?.date as string) ?? null;
@@ -43,19 +39,12 @@ export async function getLastImportedDate(): Promise<string | null> {
 // DB — force-update delete
 // ---------------------------------------------------------------------------
 
-/**
- * Deletes all rows in media.daily within the given date range.
- * Used by force-update mode before re-importing the same date range.
- *
- * @param startDate - Inclusive start (YYYY-MM-DD)
- * @param endDate   - Inclusive end (YYYY-MM-DD)
- */
 export async function deleteDataByDateRange(
+  supabase: MediaClient,
   startDate: string,
-  endDate: string
+  endDate: string,
 ): Promise<{ deleted: number; error: Error | null }> {
   try {
-    const supabase = createMediaClient();
     const { data, error } = await supabase
       .from("daily")
       .delete()
@@ -75,22 +64,13 @@ export async function deleteDataByDateRange(
 // DB — whitelist validation (client only)
 // ---------------------------------------------------------------------------
 
-/**
- * Queries media.client to determine which client_ids actually exist.
- * Used to reject CSV rows referencing unregistered clients before upsert.
- * service_id is NOT checked here — missing services are auto-registered by ensureServicesExist.
- *
- * @param clientIds - Unique client_id values from the CSV
- * @returns Set of client_ids and a name lookup map for those clients
- */
 export async function fetchRegisteredClientIds(
-  clientIds: string[]
+  supabase: MediaClient,
+  clientIds: string[],
 ): Promise<{ validClientIds: Set<string>; clientNameMap: Map<string, string> }> {
-  const supabase = createMediaClient();
   const validClientIds = new Set<string>();
   const clientNameMap = new Map<string, string>();
 
-  // Query in batches (Supabase .in() has payload limits)
   for (let i = 0; i < clientIds.length; i += WIDGET_BATCH_SIZE) {
     const batch = clientIds.slice(i, i + WIDGET_BATCH_SIZE);
     const { data, error } = await supabase
@@ -111,27 +91,41 @@ export async function fetchRegisteredClientIds(
   return { validClientIds, clientNameMap };
 }
 
+/** media.client 테이블의 모든 client_id 를 반환 (cron 에서 화이트리스트 빌드용). */
+export async function fetchAllClientIds(supabase: MediaClient): Promise<string[]> {
+  const ids: string[] = [];
+  let from = 0;
+  const PAGE = 1000;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("client")
+      .select("client_id")
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of data as any[]) ids.push(row.client_id);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return ids;
+}
+
 // ---------------------------------------------------------------------------
 // DB — failed rows
 // ---------------------------------------------------------------------------
 
-/**
- * Saves failed import rows to media.daily_failed for audit/retry.
- * Non-fatal: logs errors but does not throw.
- *
- * @param failedRows - Rows that failed validation or upsert
- */
 export async function saveFailedRows(
+  supabase: MediaClient,
   failedRows: Array<{
     row: ParsedCSVRow;
     normalizedDate: string;
     errorMessage: string;
-  }>
+  }>,
 ): Promise<void> {
   if (failedRows.length === 0) return;
 
   try {
-    const supabase = createMediaClient();
     const insertData = failedRows.map(({ row, normalizedDate, errorMessage }) => ({
       date: normalizedDate || null,
       client_id: row.client_id,
@@ -147,10 +141,7 @@ export async function saveFailedRows(
       error_message: errorMessage,
     }));
 
-    const { error } = await supabase
-      .from("daily_failed")
-      .insert(insertData);
-
+    const { error } = await supabase.from("daily_failed").insert(insertData);
     if (error) console.error("실패 행 저장 오류:", error);
   } catch (err) {
     console.error("실패 행 저장 중 오류:", err);
@@ -161,19 +152,7 @@ export async function saveFailedRows(
 // refreshDailyViews
 // ---------------------------------------------------------------------------
 
-/**
- * Refreshes the v_daily_total and v_daily_by_service materialized views
- * by calling the media.refresh_daily_views() PostgreSQL function.
- *
- * Called after a successful CSV import to ensure the Board and Data sections
- * reflect the newly imported data on the next page load.
- *
- * Uses REFRESH MATERIALIZED VIEW CONCURRENTLY (no table lock).
- *
- * @throws Supabase error if the RPC call fails
- */
-export async function refreshDailyViews(): Promise<void> {
-  const supabase = createMediaClient();
+export async function refreshDailyViews(supabase: MediaClient): Promise<void> {
   const { error } = await supabase.rpc("refresh_daily_views");
   if (error) throw error;
 }
