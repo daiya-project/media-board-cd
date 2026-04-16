@@ -115,8 +115,7 @@ export async function fetchRedashRecords(
       headers: redashHeaders(),
       body: JSON.stringify({
         parameters: {
-          "date.start": startDate,
-          "date.end": dateEndExclusive,
+          date: { start: startDate, end: dateEndExclusive },
           client_id: clientIds.join(","),
         },
         max_age: 0,
