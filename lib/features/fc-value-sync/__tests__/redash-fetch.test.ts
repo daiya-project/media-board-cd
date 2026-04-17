@@ -91,8 +91,8 @@ describe("fetchDwFcMetrics — widget × date 범위", () => {
   });
 });
 
-describe("fetchDwSnapshot — cron 용 S/T/FC 조회", () => {
-  it("S internal / T per-vendor / FC 를 UnitPriceValue 로 합성", async () => {
+describe("fetchDwSnapshot — cron 용 S/T 조회", () => {
+  it("S internal / T per-vendor 를 UnitPriceValue 로 합성", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -105,7 +105,6 @@ describe("fetchDwSnapshot — cron 용 S/T/FC 조회", () => {
                 vendor_2_cpm: 1200,
                 vendor_4_cpm: 300,
                 vendor_5_cpm: null,
-                fc: 230,
               },
             ],
           },
@@ -123,7 +122,6 @@ describe("fetchDwSnapshot — cron 용 S/T/FC 조회", () => {
       internal: 1300,
       syncmedia: 1200,
       klmedia: 300,
-      fc: 230,
     });
   });
 

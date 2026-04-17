@@ -285,18 +285,15 @@ interface SnapshotRow {
   vendor_2_cpm: number | null;
   vendor_4_cpm: number | null;
   vendor_5_cpm: number | null;
-  fc: number | null;
 }
 
 /**
- * 지정 date 의 widget 당 S(internal) / T(per-vendor CPM) / FC 스냅샷 조회.
+ * 지정 date 의 widget 당 S(internal) / T(per-vendor CPM) 스냅샷 조회.
  *
  * cron 이력화 용도: Redash 결과를 `UnitPriceValue` 로 그대로 합성해서
  * `media.external_value` 테이블에 upsert 할 때 diff 비교에 사용.
  *
- * `FC` 는 Widget 메타(MySQL) 쪽이라 Redash EDA Trino catalog 에 노출되지
- * 않을 수 있다. 현재는 NULL fallback — 별도 소스(예: Supabase 메타 또는
- * dable_meta adapter)에서 합성하는 것이 Task 5 범위.
+ * `FC` 는 fetchDwFcMap 으로 별도 prefetch 후 호출부에서 메모리 주입.
  */
 export async function fetchDwSnapshot(
   opts: FetchDwSnapshotOpts,
@@ -327,11 +324,8 @@ export async function fetchDwSnapshot(
          FROM fact_daily.ad_stats__daily_passback_stats
          WHERE widget_id = (SELECT widget_id FROM params)
            AND local_basic_time = (SELECT d FROM params)
-           AND vendor_id = 5) AS vendor_5_cpm,
-      -- FC 는 dable.WIDGET (MySQL) default_settings JSON 에서 오는 값.
-      -- Redash EDA Trino catalog 에는 현재 노출 안 됨 → NULL fallback.
-      -- Task 5 에서 data-gateway 또는 별도 소스로 보강 예정.
-      CAST(NULL AS integer) AS fc
+           AND vendor_id = 5) AS vendor_5_cpm
+      -- fc 는 fetchDwFcMap 으로 prefetch, 호출부에서 메모리 주입
   `;
 
   const rows = await runAdhocQuery<SnapshotRow>(sql, opts.apiKey);
@@ -343,7 +337,6 @@ export async function fetchDwSnapshot(
   if (r.vendor_2_cpm != null) result.syncmedia = Number(r.vendor_2_cpm);
   if (r.vendor_4_cpm != null) result.klmedia = Number(r.vendor_4_cpm);
   if (r.vendor_5_cpm != null) result.friendplus = Number(r.vendor_5_cpm);
-  if (r.fc != null) result.fc = Number(r.fc);
   return result;
 }
 
