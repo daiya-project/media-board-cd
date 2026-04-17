@@ -148,6 +148,10 @@ describe("runFcValueSyncJob — prefetch 통합", () => {
 
     const result = await runFcValueSyncJob(new Date("2026-04-17T22:00:00Z"));
 
+    expect(result.fcPrefetched).toBe(2);   // widgetIds.length
+    expect(result.fcResolved).toBe(1);     // B 만 resolved
+    expect(result.widgetsInserted).toBe(2); // A (S 변경) + B (fc 변경)
+
     // A 는 fc 주입 안 됨 → merged.fc 는 기존 latest 값 999 유지
     const aInsert = insertCalls.find(
       (r) => (r as { widget_id: string }).widget_id === "A",

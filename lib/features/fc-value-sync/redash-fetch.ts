@@ -1,10 +1,11 @@
 /**
  * FC sync 용 Redash Trino (EDA) 쿼리 실행.
  *
- * 두 가지 조회:
+ * 세 가지 조회:
  *  - fetchDwFcMetrics(widget, range): 리포트 페이지용 일자별 메트릭
  *    (D, G, a, b, c, d, M, vendor_source)
- *  - fetchDwSnapshot(widget, date): cron 이력화용 S/T/FC 현재값 (UnitPriceValue)
+ *  - fetchDwSnapshot(widget, date): cron 이력화용 S/T 현재값 (UnitPriceValue)
+ *  - fetchDwFcMap(widgetIds): FC prefetch (WIDGET_SETTING override > WIDGET.default_settings JSON)
  *
  * 기존 `lib/features/daily-redash-import/redash-fetch.ts` 의 POST+Polling 패턴 기반.
  * 단, 해당 모듈은 사전-정의된 Redash 쿼리 id 를 호출하지만 여기는

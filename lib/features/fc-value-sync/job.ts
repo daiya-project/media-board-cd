@@ -8,8 +8,10 @@
  * 흐름:
  *   1. cookie-free Supabase 클라이언트 생성
  *   2. 관리 대상 widget 리스트 (external_mapping.widget_id IS NOT NULL)
- *   3. 각 widget:
- *        - DW snapshot fetch (S/T/FC)
+ *   3. FC prefetch — fetchDwFcMap 1회 호출 (실패 시 fail-open, S/T 는 계속)
+ *   4. 각 widget:
+ *        - DW snapshot fetch (S/T 만)
+ *        - fcMap 에서 FC 메모리 주입
  *        - latest active external_value 조회
  *        - diff → 변경 시 새 row insert (start_date=today)
  */
