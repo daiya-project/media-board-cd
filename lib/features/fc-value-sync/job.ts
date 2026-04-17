@@ -24,6 +24,8 @@ export interface SyncResult {
   widgetsChecked: number;
   widgetsInserted: number;
   failures: number;
+  fcPrefetched: number;
+  fcResolved: number;
   details: Array<{ widget_id: string; changed: boolean; error?: string }>;
   durationMs: number;
 }
@@ -99,6 +101,8 @@ export async function runFcValueSyncJob(now: Date = new Date()): Promise<SyncRes
     widgetsChecked: widgetIds.length,
     widgetsInserted: inserted,
     failures,
+    fcPrefetched: 0,
+    fcResolved: 0,
     details,
     durationMs: Date.now() - t0,
   };
