@@ -20,14 +20,3 @@ CREATE TABLE IF NOT EXISTS media.external_total_daily (
 
 CREATE INDEX IF NOT EXISTS external_total_daily_date_idx
   ON media.external_total_daily (date DESC);
-
--- RLS: anon read + cron upsert. Adjust if project uses different policy pattern.
-ALTER TABLE media.external_total_daily ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "total_daily_anon_read" ON media.external_total_daily;
-CREATE POLICY "total_daily_anon_read" ON media.external_total_daily
-  FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "total_daily_anon_write" ON media.external_total_daily;
-CREATE POLICY "total_daily_anon_write" ON media.external_total_daily
-  FOR ALL USING (true) WITH CHECK (true);
