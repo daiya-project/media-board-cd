@@ -17,6 +17,8 @@ export function registerFcValueSyncCron(): void {
           widgetsChecked: result.widgetsChecked,
           widgetsInserted: result.widgetsInserted,
           failures: result.failures,
+          fcPrefetched: result.fcPrefetched,
+          fcResolved: result.fcResolved,
           durationMs: Date.now() - t0,
         });
       } catch (err) {
