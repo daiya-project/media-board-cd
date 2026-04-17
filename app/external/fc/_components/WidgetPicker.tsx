@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExternalFcPagePayload } from "@/types/fc";
@@ -14,6 +14,7 @@ interface Props {
 export default function WidgetPicker({ widgets, selectedId, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const selected = widgets.find((w) => w.widget_id === selectedId) ?? null;
 
@@ -27,8 +28,27 @@ export default function WidgetPicker({ widgets, selectedId, onSelect }: Props) {
     );
   }, [widgets, query]);
 
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 flex items-center gap-2 min-w-[280px]"
