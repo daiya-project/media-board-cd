@@ -47,14 +47,6 @@ export default function FcClient({ payload }: Props) {
     <>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-gray-800">FC 리포트</h2>
-            {rows.length > 0 && (
-              <span className="text-xs font-medium text-gray-400 tabular-nums">
-                {rows.length}일
-              </span>
-            )}
-          </div>
           <WidgetPicker
             widgets={payload.widgets}
             selectedId={payload.widgetId}

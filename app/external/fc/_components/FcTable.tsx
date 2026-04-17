@@ -20,10 +20,21 @@ function fmtPct(n: number): string {
   if (!Number.isFinite(n)) return "—";
   return `${(n * 100).toFixed(1)}%`;
 }
-function fmtKrw(n: number): string {
+function fmtWon(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return `₩${formatNumberForDisplay(Math.round(n))}`;
+  return formatNumberForDisplay(Math.round(n));
 }
+
+// 섹션별 바탕색 (아주 연한 alpha). 요청·응답 은 흰색 유지 → 얼룩말이 그대로 보임.
+const BG_BASIC = "bg-slate-50/60";
+const BG_REQ_RESP = "";
+const BG_RPM_MFR = "bg-amber-50/60";
+const BG_DABLE = "bg-blue-50/60";
+const BG_PASSBACK = "bg-orange-50/60";
+const BG_MARGIN = "bg-emerald-50/60";
+
+// 본문 td 공통 — 텍스트는 검은 계열(text-gray-900), 섹션 bg 만 덮어 사용.
+const CELL = cn(TABLE_TD_CLASS, "text-right tabular-nums text-gray-900");
 
 interface Props {
   rows: ExternalFcRow[];
@@ -40,270 +51,150 @@ export default function FcTable({ rows }: Props) {
 
   return (
     <div className="flex-1 overflow-auto rounded-xl border border-border shadow-sm">
-      <table className="w-max min-w-full border-collapse text-xs">
+      <table className="w-max min-w-full border-collapse text-xs text-gray-900">
         <thead className={TABLE_THEAD_CLASS}>
           {/* group row */}
           <tr className="border-b border-gray-100">
             <th
               colSpan={2}
-              className="py-2 px-2 text-center text-[10px] font-semibold text-gray-500"
+              className={cn(
+                "py-2 px-2 text-center text-[10px] font-semibold text-gray-700",
+                BG_BASIC,
+              )}
             >
               기본
             </th>
             <th
               colSpan={6}
-              className="py-2 px-2 text-center text-[10px] font-semibold bg-sky-50 text-sky-700"
+              className="py-2 px-2 text-center text-[10px] font-semibold text-gray-700 bg-white"
             >
               요청·응답
             </th>
             <th
               colSpan={4}
-              className="py-2 px-2 text-center text-[10px] font-semibold bg-amber-50 text-amber-700"
+              className={cn(
+                "py-2 px-2 text-center text-[10px] font-semibold text-gray-700",
+                BG_RPM_MFR,
+              )}
             >
               RPM·MFR
             </th>
             <th
               colSpan={9}
-              className="py-2 px-2 text-center text-[10px] font-semibold bg-blue-50 text-blue-700"
+              className={cn(
+                "py-2 px-2 text-center text-[10px] font-semibold text-gray-700",
+                BG_DABLE,
+              )}
             >
               데이블 블록
             </th>
             <th
               colSpan={7}
-              className="py-2 px-2 text-center text-[10px] font-semibold bg-orange-50 text-orange-700"
+              className={cn(
+                "py-2 px-2 text-center text-[10px] font-semibold text-gray-700",
+                BG_PASSBACK,
+              )}
             >
               패스백 블록
             </th>
             <th
               colSpan={2}
-              className="py-2 px-2 text-center text-[10px] font-semibold bg-green-50 text-green-700"
+              className={cn(
+                "py-2 px-2 text-center text-[10px] font-semibold text-gray-700",
+                BG_MARGIN,
+              )}
             >
               공헌이익
             </th>
           </tr>
           {/* header row */}
           <tr className="border-b border-gray-200">
-            <th className={TABLE_TH_CLASS}>날짜</th>
-            <th className={TABLE_TH_CLASS}>FC</th>
-            <th className={TABLE_TH_CLASS}>요청</th>
-            <th className={TABLE_TH_CLASS}>응답</th>
-            <th className={TABLE_TH_CLASS}>응답률</th>
-            <th className={TABLE_TH_CLASS}>패스백</th>
-            <th className={TABLE_TH_CLASS}>패스백률</th>
-            <th className={TABLE_TH_CLASS}>싱크노출</th>
-            <th className={TABLE_TH_CLASS}>RPM</th>
-            <th className={TABLE_TH_CLASS}>RPM(OBI)</th>
-            <th className={TABLE_TH_CLASS}>전체MFR</th>
-            <th className={TABLE_TH_CLASS}>데이블MFR</th>
-            <th className={TABLE_TH_CLASS}>FN매출</th>
-            <th className={TABLE_TH_CLASS}>매체비</th>
-            <th className={TABLE_TH_CLASS}>APC</th>
-            <th className={TABLE_TH_CLASS}>서버비</th>
-            <th className={TABLE_TH_CLASS}>매체매출</th>
-            <th className={TABLE_TH_CLASS}>광고매출</th>
-            <th className={TABLE_TH_CLASS}>CPM</th>
-            <th className={TABLE_TH_CLASS}>공헌이익</th>
-            <th className={TABLE_TH_CLASS}>유실분</th>
-            <th className={TABLE_TH_CLASS}>싱크MFR</th>
-            <th className={TABLE_TH_CLASS}>PB FN</th>
-            <th className={TABLE_TH_CLASS}>PB 매체비</th>
-            <th className={TABLE_TH_CLASS}>PB 서버비</th>
-            <th className={TABLE_TH_CLASS}>PB 매체매출</th>
-            <th className={TABLE_TH_CLASS}>PB 광고매출</th>
-            <th className={TABLE_TH_CLASS}>싱크 공헌</th>
-            <th className={TABLE_TH_CLASS}>전체 공헌</th>
-            <th className={TABLE_TH_CLASS}>전체 RPM</th>
+            <th className={cn(TABLE_TH_CLASS, BG_BASIC)}>날짜</th>
+            <th className={cn(TABLE_TH_CLASS, BG_BASIC)}>FC</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>요청</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>응답</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>응답률</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>패스백</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>패스백률</th>
+            <th className={cn(TABLE_TH_CLASS, BG_REQ_RESP)}>패스백 노출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_RPM_MFR)}>RPM</th>
+            <th className={cn(TABLE_TH_CLASS, BG_RPM_MFR)}>RPM(OBI)</th>
+            <th className={cn(TABLE_TH_CLASS, BG_RPM_MFR)}>전체MFR</th>
+            <th className={cn(TABLE_TH_CLASS, BG_RPM_MFR)}>데이블MFR</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>FN매출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>매체비</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>APC</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>서버비</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>매체매출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>광고매출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>CPM</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>공헌이익</th>
+            <th className={cn(TABLE_TH_CLASS, BG_DABLE)}>유실분</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>싱크MFR</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>PB FN</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>PB 매체비</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>PB 서버비</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>PB 매체매출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>PB 광고매출</th>
+            <th className={cn(TABLE_TH_CLASS, BG_PASSBACK)}>싱크 공헌</th>
+            <th className={cn(TABLE_TH_CLASS, BG_MARGIN)}>전체 공헌</th>
+            <th className={cn(TABLE_TH_CLASS, BG_MARGIN)}>전체 RPM</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr
               key={r.date}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-b border-gray-100 odd:bg-gray-50/50 hover:bg-slate-100/50"
             >
               <td
                 className={cn(
                   TABLE_TD_CLASS,
-                  "text-center font-mono whitespace-nowrap",
+                  "text-center font-mono whitespace-nowrap text-gray-900",
+                  BG_BASIC,
                 )}
               >
                 {r.date}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {r.fc_amount != null ? fmtKrw(r.fc_amount) : "—"}
+              <td className={cn(CELL, BG_BASIC)}>
+                {r.fc_amount != null ? fmtWon(r.fc_amount) : "—"}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.requests)}
-              </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.dable_response)}
-              </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmtPct(r.response_rate)}
-              </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
+              <td className={cn(CELL, BG_REQ_RESP)}>{fmt(r.requests)}</td>
+              <td className={cn(CELL, BG_REQ_RESP)}>{fmt(r.dable_response)}</td>
+              <td className={cn(CELL, BG_REQ_RESP)}>{fmtPct(r.response_rate)}</td>
+              <td className={cn(CELL, BG_REQ_RESP)}>
                 {fmt(r.passback_requests)}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmtPct(r.passback_rate)}
+              <td className={cn(CELL, BG_REQ_RESP)}>{fmtPct(r.passback_rate)}</td>
+              <td className={cn(CELL, BG_REQ_RESP)}>{fmt(r.vendor_imp)}</td>
+              <td className={cn(CELL, BG_RPM_MFR)}>{fmt(r.rpm_dashboard)}</td>
+              <td className={cn(CELL, BG_RPM_MFR)}>{fmt(r.rpm_obi)}</td>
+              <td className={cn(CELL, BG_RPM_MFR)}>{fmtPct(r.total_mfr)}</td>
+              <td className={cn(CELL, BG_RPM_MFR)}>{fmtPct(r.dable_mfr)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_fn_revenue)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_media_cost)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_apc)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_server_cost)}</td>
+              <td className={cn(CELL, BG_DABLE)}>
+                {fmtWon(r.dable_media_revenue)}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.vendor_imp)}
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_ad_revenue)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmt(r.dable_cpm, 1)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmtWon(r.dable_margin)}</td>
+              <td className={cn(CELL, BG_DABLE)}>{fmt(r.lost_imp)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtPct(r.vendor_mfr)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtWon(r.pb_fn_revenue)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtWon(r.pb_media_cost)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtWon(r.pb_server_cost)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>
+                {fmtWon(r.pb_media_revenue)}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.rpm_dashboard)}
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtWon(r.pb_ad_revenue)}</td>
+              <td className={cn(CELL, BG_PASSBACK)}>{fmtWon(r.vendor_margin)}</td>
+              <td className={cn(CELL, "font-medium", BG_MARGIN)}>
+                {fmtWon(r.contribution_margin)}
               </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.rpm_obi)}
-              </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmtPct(r.total_mfr)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtPct(r.dable_mfr)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_fn_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_media_cost)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_apc)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_server_cost)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_media_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_ad_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmt(r.dable_cpm, 1)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-blue-700",
-                )}
-              >
-                {fmtKrw(r.dable_margin)}
-              </td>
-              <td className={cn(TABLE_TD_CLASS, "text-right tabular-nums")}>
-                {fmt(r.lost_imp)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtPct(r.vendor_mfr)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.pb_fn_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.pb_media_cost)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.pb_server_cost)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.pb_media_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.pb_ad_revenue)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums text-orange-700",
-                )}
-              >
-                {fmtKrw(r.vendor_margin)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums font-medium text-green-700",
-                )}
-              >
-                {fmtKrw(r.contribution_margin)}
-              </td>
-              <td
-                className={cn(
-                  TABLE_TD_CLASS,
-                  "text-right tabular-nums font-medium text-green-700",
-                )}
-              >
+              <td className={cn(CELL, "font-medium", BG_MARGIN)}>
                 {fmt(r.total_rpm_margin, 1)}
               </td>
             </tr>
