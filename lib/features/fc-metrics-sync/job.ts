@@ -14,6 +14,50 @@ import { createCronSupabase } from "@/lib/supabase/cron-client";
 import { fetchDwFcMetrics } from "@/lib/features/fc-value-sync/redash-fetch";
 import { computeFcSyncRange, type SyncRange } from "./date-range";
 import type { ExternalFcAutoInputs } from "@/types/fc";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
+
+/**
+ * widget 의 external_mapping 을 찾아 external_daily 의 vendor API imp 를
+ * date 별로 합산한 Map 을 반환.
+ * klmedia: external_widget_name 기준 매칭 (없으면 external_service_name).
+ * syncmedia: external_service_name 기준 매칭.
+ */
+async function fetchVendorImpByDate(
+  supabase: SupabaseClient<Database, "media">,
+  widgetId: string,
+  range: SyncRange,
+): Promise<Map<string, number>> {
+  const byDate = new Map<string, number>();
+
+  const { data: mappings, error: mapErr } = await supabase
+    .from("external_mapping")
+    .select("source, external_key")
+    .eq("widget_id", widgetId);
+  if (mapErr) throw mapErr;
+  if (!mappings || mappings.length === 0) return byDate;
+
+  for (const m of mappings) {
+    const { data: daily, error: dailyErr } = await supabase
+      .from("external_daily")
+      .select("date, imp, external_widget_name, external_service_name")
+      .eq("source", m.source)
+      .gte("date", range.start)
+      .lte("date", range.end);
+    if (dailyErr) throw dailyErr;
+
+    for (const row of daily ?? []) {
+      const key =
+        m.source === "klmedia"
+          ? row.external_widget_name || row.external_service_name
+          : row.external_service_name;
+      if (key !== m.external_key) continue;
+      const prev = byDate.get(row.date) ?? 0;
+      byDate.set(row.date, prev + (row.imp ?? 0));
+    }
+  }
+  return byDate;
+}
 
 export interface MetricsSyncResult {
   widgetsChecked: number;
@@ -107,12 +151,20 @@ export async function runFcMetricsSyncJob(
         continue;
       }
 
+      // vendor_imp: Supabase external_daily (vendor API 수집값) 에서 widget×date 합산.
+      // Trino 는 external_daily 접근 불가라 여기서 병합.
+      const vendorImpByDate = await fetchVendorImpByDate(
+        supabase,
+        widgetId,
+        decision.range,
+      );
+
       const rows = metrics.map((m: ExternalFcAutoInputs) => ({
         widget_id: widgetId,
         date: m.date,
         requests: m.requests,
         passback_imp: m.passback_imp,
-        vendor_imp: m.vendor_imp,
+        vendor_imp: vendorImpByDate.get(m.date) ?? 0,
         dable_media_cost: m.dable_media_cost,
         dable_revenue: m.dable_revenue,
         pb_media_cost: m.pb_media_cost,
