@@ -1,10 +1,10 @@
 /**
- * Default per-widget FC report constants, used when no row exists in
- * media.external_fc_config for a widget.
+ * FC 리포트 계산용 기본 상수.
+ * 엑셀 원본 시트의 하드코딩 값과 동일.
  */
-import type { ExternalFcConfig } from "@/types/external";
+import type { ExternalFcConstants } from "@/types/fc";
 
-export const DEFAULT_FC_CONFIG: Omit<ExternalFcConfig, "widget_id" | "note"> = {
+export const DEFAULT_FC_CONSTANTS: ExternalFcConstants = {
   rpm_obi_ratio: 0.34,
   server_cost_rate: 0.047,
   apc_rate: 0.017,
