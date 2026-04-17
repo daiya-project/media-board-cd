@@ -23,6 +23,7 @@ import {
   ChevronRight,
   GitPullRequestArrow,
   FlaskConical,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModalStore } from "@/stores/useModalStore";
@@ -498,12 +499,27 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              isActive={pathname.startsWith("/external")}
+              isActive={
+                pathname.startsWith("/external") &&
+                !pathname.startsWith("/external/fc")
+              }
               className="rounded-xl text-[13px] font-medium gap-3 px-3.5 py-2.5 h-auto text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-700"
             >
               <Link href="/external">
                 <FlaskConical className="!size-4" />
                 <span>External Report</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith("/external/fc")}
+              className="rounded-xl text-[13px] font-medium gap-3 px-3.5 py-2.5 h-auto text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-700"
+            >
+              <Link href="/external/fc">
+                <Gauge className="!size-4" />
+                <span>FC 리포트</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
