@@ -382,6 +382,38 @@ export async function fetchDwFcMap(
   if (opts.widgetIds.length === 0) {
     return new Map();
   }
-  // TODO Task 2: Trino 호출 및 응답 파싱
-  return new Map();
+
+  const valuesList = opts.widgetIds.map((id) => `('${id}')`).join(", ");
+  const sql = `
+    WITH target AS (
+      SELECT widget_id FROM (VALUES ${valuesList}) AS t(widget_id)
+    )
+    SELECT
+      w.widget_id,
+      COALESCE(
+        TRY_CAST(ws.value AS integer),
+        TRY_CAST(
+          json_extract_scalar(CAST(w.default_settings AS varchar),
+                              '$.passback.ad_low_rpm_passback')
+          AS integer
+        )
+      ) AS fc
+    FROM mysql_reco_re.dable.WIDGET w
+    JOIN target t ON t.widget_id = w.widget_id
+    LEFT JOIN mysql_reco_re.dable.WIDGET_SETTING ws
+           ON w.widget_id = ws.widget_id
+          AND ws.key = 'ad_low_rpm_passback'
+  `;
+
+  interface FcRow {
+    widget_id: string;
+    fc: number | null;
+  }
+  const rows = await runAdhocQuery<FcRow>(sql, opts.apiKey);
+
+  const map = new Map<string, number | null>();
+  for (const r of rows) {
+    map.set(String(r.widget_id), r.fc == null ? null : Number(r.fc));
+  }
+  return map;
 }

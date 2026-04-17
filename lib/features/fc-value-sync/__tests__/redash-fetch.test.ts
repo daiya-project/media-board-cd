@@ -166,3 +166,87 @@ describe("fetchDwFcMap — 가드", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
+
+describe("fetchDwFcMap — 정상 경로", () => {
+  it("Redash 결과를 Map<widget_id, fc> 로 변환", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        query_result: {
+          data: {
+            rows: [
+              { widget_id: "A", fc: 230 },
+              { widget_id: "B", fc: 500 },
+            ],
+          },
+        },
+      }),
+    });
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    const result = await fetchDwFcMap({
+      widgetIds: ["A", "B"],
+      apiKey: "test-key",
+    });
+    expect(result.size).toBe(2);
+    expect(result.get("A")).toBe(230);
+    expect(result.get("B")).toBe(500);
+  });
+
+  it("DW 에 widget row 가 없으면 Map 에 key 없음", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        query_result: { data: { rows: [{ widget_id: "A", fc: 230 }] } },
+      }),
+    });
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    const result = await fetchDwFcMap({
+      widgetIds: ["A", "MISSING"],
+      apiKey: "test-key",
+    });
+    expect(result.has("A")).toBe(true);
+    expect(result.has("MISSING")).toBe(false);
+  });
+
+  it("fc 가 null 이면 Map 에 key 있지만 value=null", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        query_result: { data: { rows: [{ widget_id: "A", fc: null }] } },
+      }),
+    });
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    const result = await fetchDwFcMap({ widgetIds: ["A"], apiKey: "test-key" });
+    expect(result.has("A")).toBe(true);
+    expect(result.get("A")).toBeNull();
+  });
+
+  it("data_source_id=307 + mysql_reco_re.dable.WIDGET 포함 SQL 로 POST", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ query_result: { data: { rows: [] } } }),
+    });
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    await fetchDwFcMap({ widgetIds: ["A"], apiKey: "test-key" });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/query_results");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string) as {
+      query: string;
+      data_source_id: number;
+    };
+    expect(body.data_source_id).toBe(307);
+    expect(body.query).toContain("mysql_reco_re.dable.WIDGET");
+    expect(body.query).toContain("ad_low_rpm_passback");
+  });
+});
