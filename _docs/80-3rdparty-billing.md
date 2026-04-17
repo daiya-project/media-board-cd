@@ -463,3 +463,121 @@ UPSERT UPDATE 경로에서 `DEFAULT now()` 는 적용 안 됨 (PostgreSQL 기본
 - [ ] `fc-metrics-sync/job.ts` upsert 매핑 추가
 - [ ] `types/fc.ts::ExternalFcAutoInputs` 필드 추가
 - [ ] 전체 widget 재백필 (`POST /api/fc/sync?start=&end=`)
+
+---
+
+## 12. Flooring CPM 관련 사항 정리 (추후 구현)
+
+FC (Flooring CPM / `ad_low_rpm_passback`) 값의 **원본 위치**·**현재 구현 상태**·**자동화 로드맵** 을 한 곳에 정리. 현재는 Supabase `external_value.value.fc` 에 운영자 수동 입력만 반영되며, DW 에서 자동 snapshot 을 가져오는 경로는 **미구현** 이다.
+
+### 12.1 FC 원본 위치 3곳 (우선순위 있음)
+
+#### (1) `dable.WIDGET.default_settings` JSON — 기본값, 가장 일반적
+
+```json
+{
+  "passback": {
+    "ad_low_rpm_passback": 230,       // ← FC 값 (KRW 정수, "RPM 이 이 값 이하일 때 passback 발동")
+    "ad_high_rpm_passback": null,     // 상한 (일부 widget 만 설정, 3개 관측)
+    "ad_passback_type": "html",
+    "ad_passback_height": 280,
+    "ad_passback": "<iframe src='https://ad.3dpop.kr/...'>"
+  }
+}
+```
+
+검증: widget `V7a1pGx7` 2026-04-15 기준 **230** — 엑셀 B열 FC 금액과 일치.
+
+#### (2) `dable.WIDGET_SETTING` — widget override
+
+key-value 테이블의 `key='ad_low_rpm_passback'` 또는 `key='ad_high_rpm_passback'` row. 약 **99 widget** 에 override 설정 존재 (샘플 조회 기준). `default_settings.passback.ad_low_rpm_passback` 보다 우선 적용되는 것으로 추정 — 실제 우선순위는 서비스 로직 확인 필요.
+
+#### (3) `dable.SERVICE_SETTING` — service fallback
+
+서비스 단위 기본값. 약 **26 service** 에 설정. widget/WIDGET_SETTING 모두에 값이 없을 때 이걸 상속받는 패턴 추정.
+
+### 12.2 MySQL 조회 예시 (data-gateway MCP)
+
+```sql
+-- widget default + widget override 동시 조회
+SELECT
+  w.widget_id,
+  w.widget_name,
+  JSON_UNQUOTE(JSON_EXTRACT(w.default_settings,'$.passback.ad_low_rpm_passback')) AS fc_default,
+  JSON_UNQUOTE(JSON_EXTRACT(w.default_settings,'$.passback.ad_passback_type'))    AS pb_type,
+  JSON_UNQUOTE(JSON_EXTRACT(w.default_settings,'$.passback.ad_passback_height'))  AS pb_height,
+  ws.value AS fc_widget_override
+FROM dable.WIDGET w
+LEFT JOIN dable.WIDGET_SETTING ws
+  ON w.widget_id = ws.widget_id
+ AND ws.`key` = 'ad_low_rpm_passback'
+WHERE w.widget_id IN ('V7a1pGx7', '6o3OAbMo')
+```
+
+### 12.3 현재 구현 상태
+
+`lib/features/fc-value-sync/redash-fetch.ts::fetchDwSnapshot` 의 SQL 에서 **`fc`** 를 하드코딩한다:
+
+```sql
+-- fc 는 dable.WIDGET 쪽 MySQL 메타. Redash Trino catalog 에 없을 수 있음.
+-- 있으면 default_settings JSON 추출, 없으면 NULL fallback.
+CAST(NULL AS integer) AS fc
+```
+
+결과:
+- `fc-value-sync` cron 은 FC 를 snapshot 하지 않음 (`undefined` → diff 비교 대상에서 제외 → 기존 `external_value.value.fc` 그대로 유지)
+- FC 값은 **운영자가 관리 페이지 (`/external/fc/admin`)** 에서 수동 입력해야만 `external_value.value.fc` 에 저장됨
+- UI 에서는 `external_value.value.fc` (for date) 을 찾아서 표시. 값 없으면 "—" 표시
+
+### 12.4 자동화 로드맵
+
+#### (A) Redash Trino 경로 확인 — 권장
+
+Redash Trino catalog 에서 `dable.WIDGET` (MySQL) 이 직접 노출되거나, `dable__widget__latest` 같은 디멘전 테이블로 노출되는지 스모크 테스트:
+
+```sql
+-- Redash adhoc query
+SELECT widget_id, default_settings FROM dable.WIDGET WHERE widget_id = 'V7a1pGx7' LIMIT 1
+-- 또는
+SELECT widget_id, default_settings FROM dimensional_reco.dable__widget__latest LIMIT 1
+```
+
+가능하면 `fetchDwSnapshot` 의 SQL 을 다음과 같이 확장:
+```sql
+-- 기존 CAST(NULL AS integer) AS fc 를 아래로 교체
+CAST(
+  JSON_EXTRACT_SCALAR(
+    (SELECT default_settings FROM dable.WIDGET WHERE widget_id = ?),
+    '$.passback.ad_low_rpm_passback'
+  ) AS integer
+) AS fc
+```
+
+(Trino 는 `JSON_EXTRACT_SCALAR` 사용, MySQL 의 `JSON_UNQUOTE(JSON_EXTRACT(...))` 와 역할 동일)
+
+#### (B) data-gateway MCP 래퍼 신설 — Trino 불가 시 대안
+
+Next.js 런타임에서 MCP 프로토콜 호출은 기반이 없으므로, 사내 data-gateway 서버에 HTTP 엔드포인트가 있다면 그걸 래핑한 `lib/dw/dataGatewayClient.ts` 를 신설:
+
+- `fc-value-sync/job.ts` 내부에서 widget 별로 `GET /api/dw/widget/{widget_id}` → JSON 에서 `passback.ad_low_rpm_passback` 추출
+- MCP 는 Claude Code 개발 환경 전용, 프로덕션 Next.js 에서는 사용 불가
+
+#### (C) Supabase Edge Function 또는 외부 잡 — 차선책
+
+MySQL 에 직접 접속하는 Node.js 잡을 별도로 돌려서 FC 만 주기적으로 Supabase 에 upsert.
+
+### 12.5 우선순위·영향도
+
+현재 운영에서 FC 가 **수동 관리** 여도 큰 문제 없다. 이유:
+- FC 값은 일별 변동이 드물고 (엑셀 샘플에서 230/250 2단계 변화)
+- 변경 시 관리 페이지에서 기간 지정해서 입력하면 이력 보존됨
+
+자동화 우선순위는 **낮음** (Medium-Low). 단, widget 수가 늘어나고 FC 변경이 잦아지면 운영 부담이 커지므로 A 경로 스모크부터 시도 권장.
+
+### 12.6 체크리스트
+
+- [ ] Redash Trino 에서 `dable.WIDGET.default_settings` 조회 가능 여부 스모크 (`SELECT JSON_EXTRACT_SCALAR(...) FROM dable.WIDGET`)
+- [ ] 가능: `fetchDwSnapshot` SQL 수정 → `fc-value-sync` cron 이 자동 이력화
+- [ ] 불가: data-gateway HTTP 엔드포인트 조사 또는 별도 MySQL 커넥션 잡 설계
+- [ ] Widget/Service 수준 override 우선순위 로직 확인 (`WIDGET_SETTING` > `default_settings` > `SERVICE_SETTING` 가정 검증)
+- [ ] 관리 페이지에 "DW snapshot seed" 버튼 추가 — 수동 등록 시 초기값 자동 제안
