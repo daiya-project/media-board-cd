@@ -346,3 +346,42 @@ export async function fetchDwSnapshot(
   if (r.fc != null) result.fc = Number(r.fc);
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// fetchDwFcMap: cron 용 FC prefetch (widget override > default JSON)
+// ---------------------------------------------------------------------------
+
+const VALID_WIDGET_ID = /^[A-Za-z0-9_-]{1,32}$/;
+
+export interface FetchDwFcMapOpts {
+  widgetIds: string[];
+  apiKey: string;
+}
+
+/**
+ * mysql_reco_re.dable.{WIDGET, WIDGET_SETTING} 에서 widget 별 현재 FC 를 1회 쿼리로 조회.
+ *
+ * 우선순위 (C1 2-tier):
+ *   1. WIDGET_SETTING.value WHERE key='ad_low_rpm_passback'   (widget override)
+ *   2. json_extract_scalar(WIDGET.default_settings, '$.passback.ad_low_rpm_passback')
+ *
+ * SERVICE_SETTING fallback 은 현 범위 제외 (후속 task).
+ *
+ * 반환: Map<widget_id, fc>.
+ *   - DW 의 WIDGET 테이블에 해당 widget_id 가 없으면 Map 에 key 자체 없음
+ *   - row 는 있으나 override/default 양쪽 모두 NULL 이면 key 포함 + value=null
+ */
+export async function fetchDwFcMap(
+  opts: FetchDwFcMapOpts,
+): Promise<Map<string, number | null>> {
+  for (const id of opts.widgetIds) {
+    if (!VALID_WIDGET_ID.test(id)) {
+      throw new Error(`Invalid widget_id format: ${id}`);
+    }
+  }
+  if (opts.widgetIds.length === 0) {
+    return new Map();
+  }
+  // TODO Task 2: Trino 호출 및 응답 파싱
+  return new Map();
+}

@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   fetchDwFcMetrics,
   fetchDwSnapshot,
+  fetchDwFcMap,
   __setFetchForTesting,
 } from "../redash-fetch";
 
@@ -140,5 +141,28 @@ describe("fetchDwSnapshot — cron 용 S/T/FC 조회", () => {
       apiKey: "test-key",
     });
     expect(snap).toEqual({});
+  });
+});
+
+describe("fetchDwFcMap — 가드", () => {
+  it("widgetIds=[] 시 Trino 호출 없이 빈 Map 반환", async () => {
+    const mockFetch = vi.fn();
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    const result = await fetchDwFcMap({ widgetIds: [], apiKey: "test-key" });
+
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(0);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("widget_id 가 [A-Za-z0-9_-]{1,32} 를 벗어나면 throw + fetch 호출 없음", async () => {
+    const mockFetch = vi.fn();
+    __setFetchForTesting(mockFetch as typeof fetch);
+
+    await expect(
+      fetchDwFcMap({ widgetIds: ["'; DROP TABLE"], apiKey: "test-key" }),
+    ).rejects.toThrow(/Invalid widget_id/);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
