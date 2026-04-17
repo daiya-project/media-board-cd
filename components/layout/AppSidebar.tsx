@@ -153,6 +153,32 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    label: "External",
+    href: "/external",
+    icon: FlaskConical,
+    description: "외부 매체 정산 · FC 리포트",
+    subItems: [
+      {
+        label: "by Total",
+        href: "/external",
+        icon: BarChart2,
+        description: "지면 총계 정산 리포트",
+      },
+      {
+        label: "by Widget",
+        href: "/external/fc",
+        icon: Gauge,
+        description: "widget 단위 FC 리포트",
+      },
+      {
+        label: "Config",
+        href: "/external/fc/admin",
+        icon: Settings,
+        description: "external_value 이력 관리",
+      },
+    ],
+  },
+  {
     label: "CVR",
     href: "/cvr",
     icon: AlertCircle,
@@ -496,33 +522,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={
-                pathname.startsWith("/external") &&
-                !pathname.startsWith("/external/fc")
-              }
-              className="rounded-xl text-[13px] font-medium gap-3 px-3.5 py-2.5 h-auto text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-700"
-            >
-              <Link href="/external">
-                <FlaskConical className="!size-4" />
-                <span>External Report</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname.startsWith("/external/fc")}
-              className="rounded-xl text-[13px] font-medium gap-3 px-3.5 py-2.5 h-auto text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 data-[active=true]:bg-indigo-50 data-[active=true]:text-indigo-700"
-            >
-              <Link href="/external/fc">
-                <Gauge className="!size-4" />
-                <span>FC 리포트</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => openModal("import")}

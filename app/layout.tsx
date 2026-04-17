@@ -23,7 +23,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  // 기본값: 확장. 사용자가 명시적으로 접었을 때만(cookie="false") 접힌 상태 유지.
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   return (
     <html lang="ko">
