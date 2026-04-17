@@ -222,7 +222,8 @@ export async function fetchDwFcMetrics(
         vendor_id AS primary_vendor_id,
         ROW_NUMBER() OVER (
           PARTITION BY local_basic_time, widget_id
-          ORDER BY impressions DESC, vendor_id ASC
+          ORDER BY impressions DESC,
+                   CASE vendor_id WHEN 5 THEN 1 WHEN 4 THEN 2 WHEN 2 THEN 3 ELSE 4 END ASC
         ) AS rn
       FROM fact_daily.ad_stats__daily_passback_stats
       WHERE widget_id = (SELECT widget_id FROM params)
