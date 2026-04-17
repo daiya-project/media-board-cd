@@ -15,7 +15,7 @@
  */
 
 import { createCronSupabase } from "@/lib/supabase/cron-client";
-import { fetchDwSnapshot } from "./redash-fetch";
+import { fetchDwFcMap, fetchDwSnapshot } from "./redash-fetch";
 import { unitPriceChanged, mergeSnapshot } from "./diff";
 import type { UnitPriceValue } from "@/types/external";
 import type { Json } from "@/types/database.types";
@@ -54,6 +54,20 @@ export async function runFcValueSyncJob(now: Date = new Date()): Promise<SyncRes
     new Set((mappings ?? []).map((m) => m.widget_id).filter((id): id is string => !!id)),
   );
 
+  // FC prefetch — 실패 시 fail-open (S/T 는 그대로 진행)
+  let fcMap = new Map<string, number | null>();
+  let fcPrefetched = 0;
+  let fcResolved = 0;
+  try {
+    fcMap = await fetchDwFcMap({ widgetIds, apiKey });
+    fcPrefetched = widgetIds.length;
+    fcResolved = Array.from(fcMap.values()).filter((v) => v != null).length;
+  } catch (err) {
+    console.warn(
+      `[fc-value-sync] fc_prefetch_failed ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   const details: SyncResult["details"] = [];
   let inserted = 0;
   let failures = 0;
@@ -61,6 +75,10 @@ export async function runFcValueSyncJob(now: Date = new Date()): Promise<SyncRes
   for (const widgetId of widgetIds) {
     try {
       const snap = await fetchDwSnapshot({ widgetId, date: today, apiKey });
+      if (fcMap.has(widgetId)) {
+        const v = fcMap.get(widgetId);
+        if (v != null) snap.fc = v;
+      }
 
       const { data: latestRows, error: latestErr } = await supabase
         .from("external_value")
@@ -101,8 +119,8 @@ export async function runFcValueSyncJob(now: Date = new Date()): Promise<SyncRes
     widgetsChecked: widgetIds.length,
     widgetsInserted: inserted,
     failures,
-    fcPrefetched: 0,
-    fcResolved: 0,
+    fcPrefetched,
+    fcResolved,
     details,
     durationMs: Date.now() - t0,
   };
