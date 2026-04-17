@@ -9,8 +9,12 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { registerDailyImportCron } = await import(
-    "./lib/features/daily-redash-import/cron"
-  );
+  const [{ registerDailyImportCron }, { registerFcValueSyncCron }] =
+    await Promise.all([
+      import("./lib/features/daily-redash-import/cron"),
+      import("./lib/features/fc-value-sync/cron"),
+    ]);
+
   registerDailyImportCron();
+  registerFcValueSyncCron();
 }
