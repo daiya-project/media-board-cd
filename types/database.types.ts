@@ -391,7 +391,7 @@ export type Database = {
         }
         Relationships: []
       }
-      external_fc_daily: {
+      external_total_daily: {
         Row: {
           widget_id: string
           date: string

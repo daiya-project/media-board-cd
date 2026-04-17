@@ -4,7 +4,7 @@
  * 구성:
  *  1. 관리 대상 widget 리스트 (external_mapping 기준)
  *  2. 선택된 widget 의 기간(월) 일자별 DW 메트릭 → ExternalFcAutoInputs[]
- *     (media.external_fc_daily 캐시에서 읽음 — fc-metrics-sync cron 이 매일 07:30 KST upsert)
+ *     (media.external_total_daily 캐시에서 읽음 — fc-metrics-sync cron 이 매일 07:30 KST upsert)
  *  3. 선택된 widget 의 external_value 전체 이력
  *  4. latestDate + monthStart/End (월 범위)
  */
@@ -21,7 +21,7 @@ import type { ExternalFcAutoInputs, ExternalFcPagePayload } from "@/types/fc";
 import type { ExternalSource } from "@/types/external";
 import type { Database } from "@/types/database.types";
 
-type ExternalFcDailyRow = Database["media"]["Tables"]["external_fc_daily"]["Row"];
+type ExternalFcDailyRow = Database["media"]["Tables"]["external_total_daily"]["Row"];
 
 /** widget 피커 options — external_mapping.widget_id IS NOT NULL 에서 추출. */
 export async function listManagedWidgets(): Promise<
@@ -55,7 +55,7 @@ async function getValuesForWidget(
   return all.filter((v) => v.widget_id === widgetId);
 }
 
-/** media.external_fc_daily 캐시에서 기간 내 일자별 메트릭 조회. */
+/** media.external_total_daily 캐시에서 기간 내 일자별 메트릭 조회. */
 async function readFcMetricsFromCache(opts: {
   widgetId: string;
   startDate: string;
@@ -63,7 +63,7 @@ async function readFcMetricsFromCache(opts: {
 }): Promise<ExternalFcAutoInputs[]> {
   const supabase = await createMediaClient();
   const { data, error } = await supabase
-    .from("external_fc_daily")
+    .from("external_total_daily")
     .select("*")
     .eq("widget_id", opts.widgetId)
     .gte("date", opts.startDate)

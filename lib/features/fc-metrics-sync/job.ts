@@ -4,10 +4,10 @@
  * 매일 07:30 KST 실행:
  *   1. 관리대상 widget 리스트
  *   2. 각 widget:
- *      - external_fc_daily 에서 해당 widget 의 max(date) 조회
+ *      - external_total_daily 에서 해당 widget 의 max(date) 조회
  *      - computeFcSyncRange 로 백필 범위 결정
  *      - fetchDwFcMetrics 로 메트릭 fetch
- *      - upsert into external_fc_daily
+ *      - upsert into external_total_daily
  */
 
 import { createCronSupabase } from "@/lib/supabase/cron-client";
@@ -73,7 +73,7 @@ export async function runFcMetricsSyncJob(
   for (const widgetId of widgetIds) {
     try {
       const { data: latestRow, error: latestErr } = await supabase
-        .from("external_fc_daily")
+        .from("external_total_daily")
         .select("date")
         .eq("widget_id", widgetId)
         .order("date", { ascending: false })
@@ -121,7 +121,7 @@ export async function runFcMetricsSyncJob(
         vendor_source: m.vendor_source,
       }));
       const { error: upErr } = await supabase
-        .from("external_fc_daily")
+        .from("external_total_daily")
         .upsert(rows as never, { onConflict: "widget_id,date" });
       if (upErr) throw upErr;
 
