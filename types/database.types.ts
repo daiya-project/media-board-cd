@@ -391,6 +391,51 @@ export type Database = {
         }
         Relationships: []
       }
+      external_fc_daily: {
+        Row: {
+          widget_id: string
+          date: string
+          requests: number | null
+          passback_imp: number | null
+          vendor_imp: number | null
+          dable_media_cost: number | null
+          dable_revenue: number | null
+          pb_media_cost: number | null
+          pb_revenue: number | null
+          rpm_dashboard: number | null
+          vendor_source: string | null
+          fetched_at: string | null
+        }
+        Insert: {
+          widget_id: string
+          date: string
+          requests?: number | null
+          passback_imp?: number | null
+          vendor_imp?: number | null
+          dable_media_cost?: number | null
+          dable_revenue?: number | null
+          pb_media_cost?: number | null
+          pb_revenue?: number | null
+          rpm_dashboard?: number | null
+          vendor_source?: string | null
+          fetched_at?: string | null
+        }
+        Update: {
+          widget_id?: string
+          date?: string
+          requests?: number | null
+          passback_imp?: number | null
+          vendor_imp?: number | null
+          dable_media_cost?: number | null
+          dable_revenue?: number | null
+          pb_media_cost?: number | null
+          pb_revenue?: number | null
+          rpm_dashboard?: number | null
+          vendor_source?: string | null
+          fetched_at?: string | null
+        }
+        Relationships: []
+      }
       external_mapping: {
         Row: {
           created_at: string | null
