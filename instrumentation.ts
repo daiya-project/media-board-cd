@@ -13,13 +13,16 @@ export async function register(): Promise<void> {
     { registerDailyImportCron },
     { registerFcValueSyncCron },
     { registerFcMetricsSyncCron },
+    { registerHourlySyncCron },
   ] = await Promise.all([
     import("./lib/features/daily-redash-import/cron"),
     import("./lib/features/fc-value-sync/cron"),
     import("./lib/features/fc-metrics-sync/cron"),
+    import("./lib/features/hourly-sync/cron"),
   ]);
 
   registerDailyImportCron();
   registerFcValueSyncCron();
   registerFcMetricsSyncCron();
+  registerHourlySyncCron();
 }

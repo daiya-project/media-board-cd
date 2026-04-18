@@ -24,6 +24,7 @@ import {
   GitPullRequestArrow,
   FlaskConical,
   Gauge,
+  Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModalStore } from "@/stores/useModalStore";
@@ -75,10 +76,30 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    label: "Board",
+    label: "Dashboard",
     href: "/dashboard",
     icon: BarChart2,
     description: "KPI 카드 + 시계열 차트",
+    subItems: [
+      {
+        label: "Today",
+        href: "/dashboard/today",
+        icon: Sun,
+        description: "오늘 기준 실시간 현황",
+      },
+      {
+        label: "Period",
+        href: "/dashboard/period",
+        icon: CalendarRange,
+        description: "기간별 KPI · 시계열 차트",
+      },
+      {
+        label: "Monthly",
+        href: "/dashboard/monthly",
+        icon: CalendarClock,
+        description: "월간 집계 대시보드",
+      },
+    ],
   },
   {
     label: "Charts",
@@ -127,7 +148,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    label: "DATA",
+    label: "Report",
     href: "/data-board",
     icon: ContactRound,
     description: "성과 데이터 분석",
@@ -185,31 +206,10 @@ const NAV_ITEMS: NavItem[] = [
     description: "전환율 분석",
   },
   {
-    label: "Goal",
-    href: "/goal",
+    label: "Goal Setting",
+    href: "/settings/goal-setting",
     icon: Target,
-    description: "월간 vimp 목표 관리",
-    subItems: [
-      {
-        label: "Monthly",
-        href: "/goal/monthly",
-        icon: CalendarCheck,
-        description: "월간 목표 달성 현황",
-      },
-      {
-        label: "Setting",
-        href: "/settings/goal-setting",
-        icon: Settings,
-        description: "팀/매니저별 목표 설정",
-      },
-    ],
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-    description: "설정",
-    subItems: [],
+    description: "팀/매니저별 월간 vIMP 목표 설정",
   },
 ];
 

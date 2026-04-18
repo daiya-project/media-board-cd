@@ -22,6 +22,7 @@ export type Database = {
           created_at: string
           has_followup: boolean
           is_deleted: boolean
+          manager_id: number | null
           memo: Json | null
           service_id: string | null
           stage: string | null
@@ -35,6 +36,7 @@ export type Database = {
           created_at?: string
           has_followup?: boolean
           is_deleted?: boolean
+          manager_id?: number | null
           memo?: Json | null
           service_id?: string | null
           stage?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           created_at?: string
           has_followup?: boolean
           is_deleted?: boolean
+          manager_id?: number | null
           memo?: Json | null
           service_id?: string | null
           stage?: string | null
@@ -61,6 +64,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "client"
             referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "action_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "ref_manager"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "action_service_id_fkey"
@@ -391,51 +401,6 @@ export type Database = {
         }
         Relationships: []
       }
-      external_total_daily: {
-        Row: {
-          widget_id: string
-          date: string
-          requests: number | null
-          passback_imp: number | null
-          vendor_imp: number | null
-          dable_media_cost: number | null
-          dable_revenue: number | null
-          pb_media_cost: number | null
-          pb_revenue: number | null
-          rpm_dashboard: number | null
-          vendor_source: string | null
-          fetched_at: string | null
-        }
-        Insert: {
-          widget_id: string
-          date: string
-          requests?: number | null
-          passback_imp?: number | null
-          vendor_imp?: number | null
-          dable_media_cost?: number | null
-          dable_revenue?: number | null
-          pb_media_cost?: number | null
-          pb_revenue?: number | null
-          rpm_dashboard?: number | null
-          vendor_source?: string | null
-          fetched_at?: string | null
-        }
-        Update: {
-          widget_id?: string
-          date?: string
-          requests?: number | null
-          passback_imp?: number | null
-          vendor_imp?: number | null
-          dable_media_cost?: number | null
-          dable_revenue?: number | null
-          pb_media_cost?: number | null
-          pb_revenue?: number | null
-          rpm_dashboard?: number | null
-          vendor_source?: string | null
-          fetched_at?: string | null
-        }
-        Relationships: []
-      }
       external_mapping: {
         Row: {
           created_at: string | null
@@ -460,6 +425,51 @@ export type Database = {
           label?: string | null
           source?: string
           widget_id?: string | null
+        }
+        Relationships: []
+      }
+      external_total_daily: {
+        Row: {
+          dable_media_cost: number | null
+          dable_revenue: number | null
+          date: string
+          fetched_at: string | null
+          passback_imp: number | null
+          pb_media_cost: number | null
+          pb_revenue: number | null
+          requests: number | null
+          rpm_dashboard: number | null
+          vendor_imp: number | null
+          vendor_source: string | null
+          widget_id: string
+        }
+        Insert: {
+          dable_media_cost?: number | null
+          dable_revenue?: number | null
+          date: string
+          fetched_at?: string | null
+          passback_imp?: number | null
+          pb_media_cost?: number | null
+          pb_revenue?: number | null
+          requests?: number | null
+          rpm_dashboard?: number | null
+          vendor_imp?: number | null
+          vendor_source?: string | null
+          widget_id: string
+        }
+        Update: {
+          dable_media_cost?: number | null
+          dable_revenue?: number | null
+          date?: string
+          fetched_at?: string | null
+          passback_imp?: number | null
+          pb_media_cost?: number | null
+          pb_revenue?: number | null
+          requests?: number | null
+          rpm_dashboard?: number | null
+          vendor_imp?: number | null
+          vendor_source?: string | null
+          widget_id?: string
         }
         Relationships: []
       }
@@ -523,6 +533,84 @@ export type Database = {
           memo?: string | null
           updated_at?: string | null
           vimp_target?: number
+        }
+        Relationships: []
+      }
+      hourly_snapshot: {
+        Row: {
+          ad_request_items: number | null
+          ad_response_items: number | null
+          clicks: number
+          cpc: number | null
+          created_at: string
+          cutoff_kst_hour: number | null
+          dable_margin_krw: number | null
+          date_kst: string
+          erpm: number | null
+          fill_rate_pct: number | null
+          hour_kst: number
+          impressions: number
+          media_fee_krw: number
+          media_fee_passback_krw: number
+          media_fee_self_dsp_krw: number
+          mfr_pct: number | null
+          passback_imp: number
+          revenue_krw: number
+          revenue_passback_krw: number
+          revenue_self_dsp_krw: number
+          updated_at: string
+          vctr_pct: number | null
+          vimp: number
+        }
+        Insert: {
+          ad_request_items?: number | null
+          ad_response_items?: number | null
+          clicks?: number
+          cpc?: number | null
+          created_at?: string
+          cutoff_kst_hour?: number | null
+          dable_margin_krw?: number | null
+          date_kst: string
+          erpm?: number | null
+          fill_rate_pct?: number | null
+          hour_kst: number
+          impressions?: number
+          media_fee_krw?: number
+          media_fee_passback_krw?: number
+          media_fee_self_dsp_krw?: number
+          mfr_pct?: number | null
+          passback_imp?: number
+          revenue_krw?: number
+          revenue_passback_krw?: number
+          revenue_self_dsp_krw?: number
+          updated_at?: string
+          vctr_pct?: number | null
+          vimp?: number
+        }
+        Update: {
+          ad_request_items?: number | null
+          ad_response_items?: number | null
+          clicks?: number
+          cpc?: number | null
+          created_at?: string
+          cutoff_kst_hour?: number | null
+          dable_margin_krw?: number | null
+          date_kst?: string
+          erpm?: number | null
+          fill_rate_pct?: number | null
+          hour_kst?: number
+          impressions?: number
+          media_fee_krw?: number
+          media_fee_passback_krw?: number
+          media_fee_self_dsp_krw?: number
+          mfr_pct?: number | null
+          passback_imp?: number
+          revenue_krw?: number
+          revenue_passback_krw?: number
+          revenue_self_dsp_krw?: number
+          updated_at?: string
+          vctr_pct?: number | null
+          vimp?: number
         }
         Relationships: []
       }
