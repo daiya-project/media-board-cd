@@ -89,7 +89,9 @@ export function calcBoardSummaryByDateRange(
   const prevMfr = calcMfr(prev.adRevenue, prev.costSpent);
 
   return {
-    adRevenue: makeSummaryMetric(current.adRevenue, prev.adRevenue),
+    // Ad Revenue KPI = cost_spent (광고주 총 지출). Report 섹션과 네이밍 통일.
+    // DB 의 ad_revenue 필드는 pub_profit alias 라 MFR 계산에만 사용.
+    adRevenue: makeSummaryMetric(current.costSpent, prev.costSpent),
     vimp: makeSummaryMetric(current.vimp, prev.vimp),
     mfr: makeSummaryMetric(currentMfr, prevMfr, true),
   };

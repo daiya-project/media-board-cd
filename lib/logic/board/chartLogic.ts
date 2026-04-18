@@ -161,7 +161,8 @@ export function calcChartPointsByGroups(
       return {
         date: label,
         costSpent: totals.costSpent,
-        adRevenue: totals.adRevenue,
+        // UI 표시용 Ad Revenue = cost_spent. MFR 은 pub_profit/cost_spent.
+        adRevenue: totals.costSpent,
         vimp: totals.vimp,
         mfr: calcMfr(totals.adRevenue, totals.costSpent),
       };
@@ -175,20 +176,21 @@ export function calcChartPointsByGroups(
   return groups.map(({ label, dates }) => {
     const dateSet = new Set(dates);
     let costSpent = 0;
-    let adRevenue = 0;
+    let pubProfit = 0;
     let vimp = 0;
     for (const r of serviceRows) {
       if (!dateSet.has(r.date)) continue;
       costSpent += r.cost_spent;
-      adRevenue += r.ad_revenue;
+      pubProfit += r.ad_revenue;
       vimp += r.vimp;
     }
     return {
       date: label,
       costSpent,
-      adRevenue,
+      // UI 표시용 Ad Revenue = cost_spent. MFR 은 pub_profit/cost_spent.
+      adRevenue: costSpent,
       vimp,
-      mfr: calcMfr(adRevenue, costSpent),
+      mfr: calcMfr(pubProfit, costSpent),
     };
   });
 }

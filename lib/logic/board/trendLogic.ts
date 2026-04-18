@@ -94,8 +94,9 @@ export function calcTrendListByDateRange(
     let changeRate: number;
 
     if (metric === "adRevenue") {
-      latestValue = current.adRevenue;
-      previousValue = prev?.adRevenue ?? 0;
+      // UI 라벨 Ad Revenue = cost_spent (Report 섹션과 통일).
+      latestValue = current.costSpent;
+      previousValue = prev?.costSpent ?? 0;
       changeRate = calcChangeRate(latestValue, previousValue);
     } else if (metric === "vimp") {
       latestValue = current.vimp;
