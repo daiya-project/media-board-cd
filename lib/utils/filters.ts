@@ -119,3 +119,30 @@ export function passesSmallAmountFilter(
   if (!excludeSmall) return true;
   return costSpent >= SMALL_SLOT_THRESHOLD[filterType];
 }
+
+/**
+ * Client-level filter: drops entire client (and all child service/widget rows)
+ * if it has a blog child service or a client_name containing "SSP".
+ *
+ * @param clientId    - The client_id of the row to check
+ * @param metaMap     - Pre-built Map<client_id, ClientMeta>
+ * @param excludeBlog - "blog 제외" checkbox state
+ * @param excludeSsp  - "ssp 제외" checkbox state
+ * @returns true if the row should be shown (passes the filter)
+ */
+export function passesClientFlagsFilter(
+  clientId: string,
+  metaMap: Map<string, ClientMeta>,
+  excludeBlog: boolean,
+  excludeSsp: boolean,
+): boolean {
+  if (!excludeBlog && !excludeSsp) return true;
+
+  const meta = metaMap.get(clientId);
+  if (!meta) return true;
+
+  if (excludeBlog && meta.has_blog_service) return false;
+  if (excludeSsp && meta.is_ssp) return false;
+
+  return true;
+}

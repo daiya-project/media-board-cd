@@ -28,6 +28,10 @@ export interface ClientMeta {
   client_id: string;
   tier: string | null;
   manager_id: number | null;
+  /** true if any child service has service_type='blog'. */
+  has_blog_service: boolean;
+  /** true if client_name matches /SSP/i — used by the "ssp 제외" checkbox. */
+  is_ssp: boolean;
 }
 
 // ---------------------------------------------------------------------------

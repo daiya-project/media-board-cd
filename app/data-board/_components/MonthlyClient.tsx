@@ -12,7 +12,7 @@ import {
   buildTotalRow,
 } from "@/lib/logic/dataBoardGrouping";
 import { sortDataRows } from "@/lib/logic/dataBoardCalculations";
-import { matchesSearch, passesSmallAmountFilter, passesClientMetaFilter, buildClientMetaMap, getDataBoardSearchFields } from "@/lib/utils/filters";
+import { matchesSearch, passesSmallAmountFilter, passesClientMetaFilter, passesClientFlagsFilter, buildClientMetaMap, getDataBoardSearchFields } from "@/lib/utils/filters";
 import type { MonthlyPayload } from "@/types/app-db.types";
 import DataFilters from "./DataFilters";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -55,8 +55,8 @@ export default function MonthlyClient({
   // Shared filter state
   // -------------------------------------------------------------------------
   const {
-    filterType, metricType, chartRange, excludeSmall, sort,
-    setChartRange, setExcludeSmall,
+    filterType, metricType, chartRange, excludeSmall, excludeBlog, excludeSsp, sort,
+    setChartRange, setExcludeSmall, setExcludeBlog, setExcludeSsp,
     handleFilterTypeChange: onFilterTypeChange,
     handleMetricTypeChange: onMetricTypeChange,
     handleSort,
@@ -108,6 +108,7 @@ export default function MonthlyClient({
     return groupedData.filter((row) => {
       if (!matchesSearch(getDataBoardSearchFields(row), search)) return false;
       if (!passesClientMetaFilter(row.client_id, clientMetaMap, tier, owner)) return false;
+      if (!passesClientFlagsFilter(row.client_id, clientMetaMap, excludeBlog, excludeSsp)) return false;
 
       const latestCostSpent = row.rawDates.get(filterKey)?.cost_spent ?? 0;
       if (!passesSmallAmountFilter(latestCostSpent, filterType, excludeSmall))
@@ -115,7 +116,7 @@ export default function MonthlyClient({
 
       return true;
     });
-  }, [groupedData, search, tier, owner, clientMetaMap, filterType, excludeSmall, displayKeys]);
+  }, [groupedData, search, tier, owner, clientMetaMap, filterType, excludeSmall, excludeBlog, excludeSsp, displayKeys]);
 
   const { totalDateValues, totalRawDates } = useMemo(
     () => buildTotalRow(filteredData, displayKeys, metricType),
@@ -144,6 +145,10 @@ export default function MonthlyClient({
         onChartRangeChange={setChartRange}
         excludeSmall={excludeSmall}
         onExcludeSmallChange={setExcludeSmall}
+        excludeBlog={excludeBlog}
+        onExcludeBlogChange={setExcludeBlog}
+        excludeSsp={excludeSsp}
+        onExcludeSspChange={setExcludeSsp}
         sliderMaxOverride={isFullyLoaded ? undefined : loadedMonthsCount}
         isWidgetDisabled={!isFullyLoaded}
       />

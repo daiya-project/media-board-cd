@@ -55,6 +55,10 @@ interface DataFiltersProps {
   onChartRangeChange: (n: number) => void;
   excludeSmall: boolean;
   onExcludeSmallChange: (value: boolean) => void;
+  excludeBlog: boolean;
+  onExcludeBlogChange: (value: boolean) => void;
+  excludeSsp: boolean;
+  onExcludeSspChange: (value: boolean) => void;
   sliderMaxOverride?: number;
   isWidgetDisabled?: boolean;
 }
@@ -80,6 +84,10 @@ export default function DataFilters({
   onChartRangeChange,
   excludeSmall,
   onExcludeSmallChange,
+  excludeBlog,
+  onExcludeBlogChange,
+  excludeSsp,
+  onExcludeSspChange,
   sliderMaxOverride,
   isWidgetDisabled,
 }: DataFiltersProps) {
@@ -177,6 +185,28 @@ export default function DataFilters({
         />
         <span className="font-medium">소액 지면 제외</span>
         <Info className="h-3.5 w-3.5 text-slate-400" />
+      </label>
+
+      {/* Blog exclusion */}
+      <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-600">
+        <input
+          type="checkbox"
+          checked={excludeBlog}
+          onChange={(e) => onExcludeBlogChange(e.target.checked)}
+          className="h-4 w-4 accent-[#2563eb]"
+        />
+        <span className="font-medium">BLOG 제외</span>
+      </label>
+
+      {/* SSP exclusion */}
+      <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-600">
+        <input
+          type="checkbox"
+          checked={excludeSsp}
+          onChange={(e) => onExcludeSspChange(e.target.checked)}
+          className="h-4 w-4 accent-[#2563eb]"
+        />
+        <span className="font-medium">SSP 제외</span>
       </label>
     </div>
   );

@@ -63,20 +63,42 @@ export async function getDataBoardDates(n = DATE_COUNT): Promise<string[]> {
 export async function getClientMeta(): Promise<ClientMeta[]> {
   const supabase = await createMediaClient();
 
-  return paginateQuery(
-    (offset, bs) =>
-      supabase
-        .from("client")
-        .select("client_id, tier, manager_id")
-        .eq("is_active", true)
-        .order("client_id", { ascending: true })
-        .range(offset, offset + bs - 1) as never,
-    (row) => ({
-      client_id: String(row.client_id),
-      tier: row.tier != null ? String(row.tier) : null,
-      manager_id: row.manager_id != null ? Number(row.manager_id) : null,
-    }),
-  );
+  const [clients, blogClientIds] = await Promise.all([
+    paginateQuery(
+      (offset, bs) =>
+        supabase
+          .from("client")
+          .select("client_id, client_name, tier, manager_id")
+          .eq("is_active", true)
+          .order("client_id", { ascending: true })
+          .range(offset, offset + bs - 1) as never,
+      (row) => ({
+        client_id: String(row.client_id),
+        client_name: row.client_name != null ? String(row.client_name) : "",
+        tier: row.tier != null ? String(row.tier) : null,
+        manager_id: row.manager_id != null ? Number(row.manager_id) : null,
+      }),
+    ),
+    paginateQuery(
+      (offset, bs) =>
+        supabase
+          .from("service")
+          .select("client_id")
+          .eq("service_type", "blog")
+          .range(offset, offset + bs - 1) as never,
+      (row) => String(row.client_id),
+    ),
+  ]);
+
+  const blogSet = new Set(blogClientIds);
+
+  return clients.map((c) => ({
+    client_id: c.client_id,
+    tier: c.tier,
+    manager_id: c.manager_id,
+    has_blog_service: blogSet.has(c.client_id),
+    is_ssp: /SSP/i.test(c.client_name),
+  }));
 }
 
 /**

@@ -20,9 +20,13 @@ interface UseDataBoardFiltersReturn {
   metricType: DataMetricType;
   chartRange: number;
   excludeSmall: boolean;
+  excludeBlog: boolean;
+  excludeSsp: boolean;
   sort: SortState<SortField>;
   setChartRange: (n: number) => void;
   setExcludeSmall: (v: boolean) => void;
+  setExcludeBlog: (v: boolean) => void;
+  setExcludeSsp: (v: boolean) => void;
   handleFilterTypeChange: (type: DataFilterType, isFullyLoaded: boolean) => void;
   handleMetricTypeChange: (type: DataMetricType) => void;
   handleSort: (field: SortField) => void;
@@ -40,6 +44,8 @@ export function useDataBoardFilters(
   const [metricType, setMetricType] = useState<DataMetricType>("adrevenue");
   const [chartRange, setChartRange] = useState(opts.defaultChartRange);
   const [excludeSmall, setExcludeSmall] = useState(true);
+  const [excludeBlog, setExcludeBlog] = useState(false);
+  const [excludeSsp, setExcludeSsp] = useState(false);
   const [sort, setSort] = useState<SortState<SortField>>({
     field: null,
     direction: "none",
@@ -79,9 +85,13 @@ export function useDataBoardFilters(
     metricType,
     chartRange,
     excludeSmall,
+    excludeBlog,
+    excludeSsp,
     sort,
     setChartRange,
     setExcludeSmall,
+    setExcludeBlog,
+    setExcludeSsp,
     handleFilterTypeChange,
     handleMetricTypeChange,
     handleSort,
