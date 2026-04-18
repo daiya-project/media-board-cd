@@ -4,7 +4,7 @@
  * KPI 카드 (vIMP / 매출 / MFR) + Monthly vIMP 차트 (월 목표 라인 포함) + Daily MFR×Revenue 차트.
  * URL params:
  *  - ?month=YYYY-MM (생략 시 latest 월)
- *  - ?manager=N    (생략 시 팀 전체)
+ *  - ?owner=N       (생략 시 팀 전체. HeaderFilters 글로벌 담당자 필터와 공유)
  */
 
 import { Suspense } from "react";
@@ -70,9 +70,9 @@ export default async function MonthlyPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const monthParam = typeof params.month === "string" ? params.month : undefined;
   const monthKey = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : undefined;
-  const managerParam = typeof params.manager === "string" ? params.manager : undefined;
+  const ownerParam = typeof params.owner === "string" ? params.owner : undefined;
   const managerId =
-    managerParam && /^\d+$/.test(managerParam) ? Number(managerParam) : null;
+    ownerParam && /^\d+$/.test(ownerParam) ? Number(ownerParam) : null;
 
   return (
     <div className="flex flex-col h-full max-w-[1920px] mx-auto">

@@ -59,9 +59,9 @@ export function MonthlyClient({
   function navigateManager(managerId: number | null) {
     const next = new URLSearchParams(searchParams);
     if (managerId === null) {
-      next.delete("manager");
+      next.delete("owner");
     } else {
-      next.set("manager", String(managerId));
+      next.set("owner", String(managerId));
     }
     const qs = next.toString();
     startTransition(() => {

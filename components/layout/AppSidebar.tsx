@@ -470,8 +470,9 @@ function NavItemWithSub({ item, pathname }: { item: NavItem; pathname: string })
                     asChild
                     isActive={subActive}
                     className={cn(
-                      "text-[12px] font-medium py-1.5",
-                      subActive && "text-blue-600 font-semibold",
+                      "text-[12px] font-medium py-1.5 rounded-lg",
+                      subActive &&
+                        "data-[active=true]:bg-blue-50 data-[active=true]:text-blue-600 data-[active=true]:font-semibold data-[active=true]:border data-[active=true]:border-blue-200 data-[active=true]:shadow-sm data-[active=true]:shadow-blue-100",
                     )}
                   >
                     <Link href={sub.href}>
